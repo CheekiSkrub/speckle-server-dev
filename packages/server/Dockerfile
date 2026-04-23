@@ -1,6 +1,6 @@
 ARG NODE_ENV=production
 
-FROM node:22-bookworm-slim@sha256:221ee67425de7a3c11ce4e81e63e50caaec82ede3a7d34599ab20e59d29a0cb5 AS build-stage
+FROM node:22-bookworm-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c AS build-stage
 
 WORKDIR /speckle-server
 
@@ -42,7 +42,7 @@ RUN yarn workspaces foreach -W run build
 
 # install only production dependencies
 # we need a clean environment, free of build dependencies
-FROM node:22-bookworm-slim@sha256:221ee67425de7a3c11ce4e81e63e50caaec82ede3a7d34599ab20e59d29a0cb5 AS dependency-stage
+FROM node:22-bookworm-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c AS dependency-stage
 
 WORKDIR /speckle-server
 COPY .yarnrc.yml .
