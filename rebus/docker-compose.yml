@@ -1,0 +1,141 @@
+version: '2.3'
+name: 'speckle-server'
+
+services:
+  postgres:
+    image: 'postgres:16.9-alpine'
+    restart: always
+    environment:
+      POSTGRES_DB: speckle
+      POSTGRES_USER: speckle
+      POSTGRES_PASSWORD: speckle
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data/
+
+  redis:
+    image: 'valkey/valkey:8-alpine'
+    restart: always
+    volumes:
+      - ./redis-data:/data
+
+  minio:
+    image: 'minio/minio'
+    command: server /data --console-address ":9001"
+    restart: always
+    volumes:
+      - ./minio-data:/data
+
+  speckle-frontend-2:
+    image: speckle/speckle-frontend-2:latest
+    restart: always
+    environment:
+      NUXT_PUBLIC_SERVER_NAME: 'Speckle DEV'
+      NUXT_PUBLIC_API_ORIGIN: 'https://speckle-dev.rebus.industries'
+      NUXT_PUBLIC_BACKEND_API_ORIGIN: 'http://speckle-server:3000'
+      NUXT_PUBLIC_BASE_URL: 'https://speckle-dev.rebus.industries'
+      NUXT_REDIS_URL: 'redis://redis'
+      NUXT_PUBLIC_SSL_ENABLED: 'true'
+      NUXT_PUBLIC_FF_LARGE_FILE_IMPORTS_ENABLED: 'true'
+      NUXT_PUBLIC_FF_NEXT_GEN_FILE_IMPORTER_ENABLED: 'true'
+      LOG_LEVEL: 'info'
+      LOG_PRETTY: 'true'
+    depends_on:
+      - speckle-server
+
+  speckle-server:
+    image: speckle/speckle-server:latest
+    restart: always
+    healthcheck:
+      test:
+        - CMD
+        - /nodejs/bin/node
+        - -e
+        - "try { require('node:http').request({headers: {'Content-Type': 'application/json'}, port:3000, hostname:'127.0.0.1', path:'/readiness', method: 'GET', timeout: 2000 }, (res) => { body = ''; res.on('data', (chunk) => {body += chunk;}); res.on('end', () => {process.exit(res.statusCode != 200 || body.toLowerCase().includes('error') ? 1 : 0);}); }).end(); } catch { process.exit(1); }"
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    environment:
+      CANONICAL_URL: 'https://speckle-dev.rebus.industries'
+      PRIVATE_OBJECTS_SERVER_URL: 'http://speckle-server:3000'
+
+      SESSION_SECRET: 'f83c92b1e45d76a9084c2f7b3e158ad620f7e5c94b0a1d38fe96b4c702e31af'
+
+      STRATEGY_LOCAL: 'true'
+      LOG_LEVEL: 'info'
+      LOG_PRETTY: 'true'
+
+      POSTGRES_URL: 'postgres'
+      POSTGRES_USER: 'speckle'
+      POSTGRES_PASSWORD: 'speckle'
+      POSTGRES_DB: 'speckle'
+
+      REDIS_URL: 'redis://redis'
+      PREVIEW_SERVICE_USE_PRIVATE_OBJECTS_SERVER_URL: 'true'
+      PREVIEW_SERVICE_REDIS_URL: 'redis://redis'
+      FILEIMPORT_SERVICE_USE_PRIVATE_OBJECTS_SERVER_URL: 'true'
+      FILEIMPORT_SERVICE_REDIS_URL: 'redis://redis'
+
+      S3_ENDPOINT: 'http://minio:9000'
+      S3_PUBLIC_ENDPOINT: 'https://speckle-dev.rebus.industries:9000'
+      S3_ACCESS_KEY: 'minioadmin'
+      S3_SECRET_KEY: 'minioadmin'
+      S3_BUCKET: 'speckle-server'
+      S3_CREATE_BUCKET: 'true'
+      S3_REGION: ''
+
+      FILE_SIZE_LIMIT_MB: 1000
+      EMAIL: 'true'
+      EMAIL_HOST: 'smtp.gmail.com'
+      EMAIL_PORT: '587'
+      EMAIL_USERNAME: 'it@rebus.industries'
+      EMAIL_PASSWORD: 'meipodqirkiarugh'
+      EMAIL_FROM: 'speckle@rebus.industries'
+      EMAIL_SECURE: 'false'
+      EMAIL_REQUIRE_TLS: 'true'
+
+      FRONTEND_ORIGIN: 'https://speckle-dev.rebus.industries'
+      ONBOARDING_STREAM_URL: 'https://latest.speckle.systems/projects/843d07eb10'
+
+      FILEIMPORT_QUEUE_POSTGRES_URL: 'postgresql://speckle:speckle@postgres/speckle'
+      FF_NEXT_GEN_FILE_IMPORTER_ENABLED: 'true'
+
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+  preview-service:
+    image: speckle/speckle-preview-service:latest
+    restart: always
+    mem_limit: '3000m'
+    memswap_limit: '3000m'
+    environment:
+      PORT: '3001'
+      LOG_LEVEL: 'info'
+      LOG_PRETTY: 'true'
+      REDIS_URL: 'redis://redis'
+    depends_on:
+      - speckle-server
+
+  webhook-service:
+    image: speckle/speckle-webhook-service:latest
+    restart: always
+    environment:
+      LOG_LEVEL: 'info'
+      LOG_PRETTY: 'true'
+      PG_CONNECTION_STRING: 'postgres://speckle:speckle@postgres/speckle'
+    depends_on:
+      - speckle-server
+
+  fileimport-service:
+    image: speckle/speckle-fileimport-service:latest
+    restart: always
+    environment:
+      LOG_LEVEL: 'info'
+      LOG_PRETTY: 'true'
+      SPECKLE_SERVER_URL: 'http://speckle-server:3000'
+      PG_CONNECTION_STRING: 'postgres://speckle:speckle@postgres/speckle'
+      REDIS_URL: 'redis://redis'
+    depends_on:
+      - speckle-server
