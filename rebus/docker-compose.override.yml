@@ -2,10 +2,16 @@ name: 'speckle-server'
 
 services:
   speckle-frontend-2:
+    image: speckle-frontend-2-rebus:v1.6.0
+    environment:
+      - NUXT_PUBLIC_FF_SAVED_VIEWS_ENABLED=true
     ports:
       - '0.0.0.0:80:8080'
 
   speckle-server:
+    image: speckle-server-rebus:v1.0.0
+    environment:
+      - FF_SAVED_VIEWS_ENABLED=true
     ports:
       - '0.0.0.0:3000:3000'
 
