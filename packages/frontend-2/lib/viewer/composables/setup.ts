@@ -54,7 +54,7 @@ import type {
   ActivePanel,
   SpeckleObject
 } from '~/lib/viewer/helpers/sceneExplorer'
-import { Vector3 } from 'three'
+import { Vector3, Box3 } from 'three'
 import { writableAsyncComputed } from '~~/lib/common/composables/async'
 import type { AsyncWritableComputedRef } from '~~/lib/common/composables/async'
 import { setupUiDiffState } from '~~/lib/viewer/composables/setup/diff'
@@ -535,22 +535,27 @@ function setupViewerMetadata(params: {
         const exactPos = cameraPositionMap.get(raw.id as string)
         let px: number, py: number, pz: number, tx: number, ty: number, tz: number
 
-        // Transform from Rhino Z-up to viewer Y-up: {x, y, z} -> {x, z, -y}
+        // The SmoothOrbitControls use up=(0,0,1) and internally apply _basisTransformInv={x,z,-y}
+        // to all inputs, converting from Rhino Z-up world space to Three.js Y-up internally.
+        // Therefore we must pass origin/target in Rhino Z-up space directly — no pre-transform.
         if (exactPos) {
-          px = exactPos.x;  py = exactPos.z;  pz = -exactPos.y
-          const fvx = fwd.x, fvy = fwd.z, fvz = -fwd.y
-          tx = px + fvx; ty = py + fvy; tz = pz + fvz
+          px = exactPos.x;  py = exactPos.y;  pz = exactPos.z
+          // NOTE: raw.forward is the absolute target world position (look-at point),
+          // NOT a direction vector. This matches how app.speckle.systems interprets it.
+          tx = fwd.x;  ty = fwd.y;  tz = fwd.z
         } else {
-          // Fallback: use scene bounding box centre as target
+          // Fallback: use scene bounding box centre as target (in Rhino Z-up space, approximate)
+          // sceneBox is in viewer Y-up, so invert: cx_rhino=cx, cy_rhino=-cz, cz_rhino=cy
           const cx = sceneBox ? (sceneBox.min.x + sceneBox.max.x) / 2 : 0
           const cy = sceneBox ? (sceneBox.min.y + sceneBox.max.y) / 2 : 0
           const cz = sceneBox ? (sceneBox.min.z + sceneBox.max.z) / 2 : 0
-          const fvx = fwd.x, fvy = fwd.z, fvz = -fwd.y
-          const fwdLen = Math.sqrt(fvx ** 2 + fvy ** 2 + fvz ** 2)
+          // Convert scene centre back to Rhino Z-up: {x, -z, y}
+          const scx = cx, scy = -cz, scz = cy
+          const fwdLen = Math.sqrt(fwd.x ** 2 + fwd.y ** 2 + fwd.z ** 2)
           if (fwdLen < 0.001) return true
-          const nx = fvx / fwdLen, ny = fvy / fwdLen, nz = fvz / fwdLen
-          px = cx - nx * fwdLen; py = cy - ny * fwdLen; pz = cz - nz * fwdLen
-          tx = cx; ty = cy; tz = cz
+          const nx = fwd.x / fwdLen, ny = fwd.y / fwdLen, nz = fwd.z / fwdLen
+          px = scx - nx * fwdLen; py = scy - ny * fwdLen; pz = scz - nz * fwdLen
+          tx = scx; ty = scy; tz = scz
         }
 
         v3Views.push({
@@ -566,6 +571,62 @@ function setupViewerMetadata(params: {
     })
 
     views.value = [...v2Views, ...v3Views]
+
+    // Fix worldBox inflation caused by Objects.Geometry.Point sub-objects
+    // from Objects.Other.Camera nodes being included in the scene bounding box.
+    // These points represent camera positions (e.g. z=300) and are irrelevant to
+    // the actual geometry bounds, causing canonical views to zoom out too far.
+    fixWorldBox()
+  }
+
+  const fixWorldBox = () => {
+    // Collect IDs of all Camera nodes
+    const cameraRawIds = new Set<string>()
+    viewer.getWorldTree().walk((node: TreeNode) => {
+      const raw = node.model?.raw
+      if (raw?.speckle_type === 'Objects.Other.Camera' && raw?.id) {
+        cameraRawIds.add(raw.id as string)
+      }
+      return true
+    })
+    if (cameraRawIds.size === 0) return
+
+    // Collect IDs of Point nodes whose immediate parent is a Camera node
+    const excludedIds = new Set<string>()
+    viewer.getWorldTree().walk((node: TreeNode) => {
+      const raw = node.model?.raw
+      if (
+        raw?.speckle_type === 'Objects.Geometry.Point' &&
+        raw?.id &&
+        node.parent?.model?.raw?.speckle_type === 'Objects.Other.Camera'
+      ) {
+        excludedIds.add(raw.id as string)
+      }
+      return true
+    })
+    if (excludedIds.size === 0) return
+
+    // Rebuild worldBox excluding the camera position Point nodes
+    const corrected = new Box3()
+    corrected.makeEmpty()
+    viewer.getWorldTree().walk((node: TreeNode) => {
+      const raw = node.model?.raw
+      if (raw?.id && excludedIds.has(raw.id as string)) return true
+      const rv = node.model?.renderView
+      if (rv?.aabb && !rv.aabb.isEmpty()) {
+        corrected.union(rv.aabb)
+      }
+      return true
+    })
+
+    if (!corrected.isEmpty()) {
+      viewer.World.worldBox.copy(corrected)
+      console.log('[REBUS] fixWorldBox: corrected worldBox', {
+        min: corrected.min,
+        max: corrected.max,
+        excluded: excludedIds.size
+      })
+    }
   }
   const updateFilteringState = (newState: MaybeNullOrUndefined<FilteringState>) => {
     // treating {}, null, undefined as the same, to avoid unnecessary updates
