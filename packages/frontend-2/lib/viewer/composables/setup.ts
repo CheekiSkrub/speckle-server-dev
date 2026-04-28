@@ -484,9 +484,88 @@ function setupViewerMetadata(params: {
   const refreshWorldTreeAndFilters = async () => {
     worldTree.value = viewer.getWorldTree()
 
-    // getViews() now returns both V2 (View3D) and V3 (Camera) views
-    // V3 Camera support is handled in the viewer SDK's SpeckleConverter + getViews()
-    views.value = viewer.getViews()
+    // V2 View3D views (old connector format)
+    const v2Views = viewer.getViews()
+
+    // V3 Camera views (new connector - Objects.Other.Camera)
+    // objectloader2 strips x/y/z from Point sub-objects (stored as separate DB objects).
+    // The exact positions are available inline on the ROOT object's `views` array,
+    // accessible via the /objects/{streamId}/{objectId}/single endpoint.
+    const v3Views: SpeckleView[] = []
+    const sceneBox = viewer.getRenderer().sceneBox
+
+    // Pre-fetch root object to get exact camera positions
+    const cameraPositionMap = new Map<string, { x: number; y: number; z: number }>()
+    try {
+      const subtreeRoot = viewer.getWorldTree().root.children[0]
+      if (subtreeRoot) {
+        const objectUrl = subtreeRoot.model.id as string
+        // objectUrl format: https://server/streams/{streamId}/objects/{objectId}
+        const urlMatch = objectUrl.match(/\/streams\/([^\/]+)\/objects\/([^\/]+)/)
+        if (urlMatch) {
+          const [, streamId, objectId] = urlMatch
+          const singleUrl = `${window.location.origin}/objects/${streamId}/${objectId}/single`
+          const singleResp = await fetch(singleUrl)
+          if (singleResp.ok) {
+            const rootObj = await singleResp.json() as Record<string, unknown>
+            const rootViews = rootObj.views as Array<Record<string, unknown>> | null | undefined
+            if (Array.isArray(rootViews)) {
+              for (const cam of rootViews) {
+                const camId = cam.id as string | undefined
+                const camPos = cam.position as Record<string, number> | null | undefined
+                if (camId && camPos && camPos.x != null && camPos.y != null && camPos.z != null) {
+                  cameraPositionMap.set(camId, { x: camPos.x, y: camPos.y, z: camPos.z })
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[REBUS] Failed to fetch root object for camera positions:', e)
+    }
+
+    viewer.getWorldTree().walk((node: TreeNode) => {
+      const raw = node.model?.raw
+      if (raw?.speckle_type === 'Objects.Other.Camera' && raw?.name) {
+        const fwd = raw.forward as Record<string, number> | null | undefined
+        if (!fwd || fwd.x == null) return true
+
+        // Look up exact position from root object pre-fetch (bypasses objectloader2 stripping)
+        const exactPos = cameraPositionMap.get(raw.id as string)
+        let px: number, py: number, pz: number, tx: number, ty: number, tz: number
+
+        // Transform from Rhino Z-up to viewer Y-up: {x, y, z} -> {x, z, -y}
+        if (exactPos) {
+          px = exactPos.x;  py = exactPos.z;  pz = -exactPos.y
+          const fvx = fwd.x, fvy = fwd.z, fvz = -fwd.y
+          tx = px + fvx; ty = py + fvy; tz = pz + fvz
+        } else {
+          // Fallback: use scene bounding box centre as target
+          const cx = sceneBox ? (sceneBox.min.x + sceneBox.max.x) / 2 : 0
+          const cy = sceneBox ? (sceneBox.min.y + sceneBox.max.y) / 2 : 0
+          const cz = sceneBox ? (sceneBox.min.z + sceneBox.max.z) / 2 : 0
+          const fvx = fwd.x, fvy = fwd.z, fvz = -fwd.y
+          const fwdLen = Math.sqrt(fvx ** 2 + fvy ** 2 + fvz ** 2)
+          if (fwdLen < 0.001) return true
+          const nx = fvx / fwdLen, ny = fvy / fwdLen, nz = fvz / fwdLen
+          px = cx - nx * fwdLen; py = cy - ny * fwdLen; pz = cz - nz * fwdLen
+          tx = cx; ty = cy; tz = cz
+        }
+
+        v3Views.push({
+          id: raw.id as string,
+          speckle_type: raw.speckle_type as string,
+          applicationId: raw.applicationId as string | undefined,
+          name: raw.name as string,
+          origin: { x: px, y: py, z: pz },
+          target: { x: tx, y: ty, z: tz }
+        } as unknown as SpeckleView)
+      }
+      return true
+    })
+
+    views.value = [...v2Views, ...v3Views]
   }
   const updateFilteringState = (newState: MaybeNullOrUndefined<FilteringState>) => {
     // treating {}, null, undefined as the same, to avoid unnecessary updates
