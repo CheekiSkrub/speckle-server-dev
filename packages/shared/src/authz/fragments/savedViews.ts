@@ -91,7 +91,8 @@ export const ensureCanAccessSavedViewFragment: AuthPolicyEnsureFragment<
       loaders
     )({
       projectId,
-      feature: WorkspacePlanFeatures.SavedViews
+      feature: WorkspacePlanFeatures.SavedViews,
+      allowUnworkspaced: true
     })
     if (canUseSavedViews.isErr) return err(canUseSavedViews.error)
 
@@ -200,7 +201,8 @@ export const ensureCanAccessSavedViewGroupFragment: AuthPolicyEnsureFragment<
       loaders
     )({
       projectId,
-      feature: WorkspacePlanFeatures.SavedViews
+      feature: WorkspacePlanFeatures.SavedViews,
+      allowUnworkspaced: true
     })
     if (canUseSavedViews.isErr) return err(canUseSavedViews.error)
 

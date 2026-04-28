@@ -15,6 +15,7 @@ import type {
   WorldTree,
   VisualDiffMode
 } from '@speckle/viewer'
+import type { TreeNode } from '@speckle/viewer'
 import { inject, ref, provide } from 'vue'
 import type { ComputedRef, WritableComputedRef, Raw, Ref, ShallowRef } from 'vue'
 import { useScopedState } from '~~/lib/common/composables/scopedState'
@@ -482,6 +483,9 @@ function setupViewerMetadata(params: {
 
   const refreshWorldTreeAndFilters = async () => {
     worldTree.value = viewer.getWorldTree()
+
+    // getViews() now returns both V2 (View3D) and V3 (Camera) views
+    // V3 Camera support is handled in the viewer SDK's SpeckleConverter + getViews()
     views.value = viewer.getViews()
   }
   const updateFilteringState = (newState: MaybeNullOrUndefined<FilteringState>) => {

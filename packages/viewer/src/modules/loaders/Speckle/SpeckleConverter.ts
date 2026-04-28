@@ -38,6 +38,7 @@ export default class SpeckleConverter {
     [name: string]: SpeckleConverterNodeDelegate
   } = {
     View3D: this.View3DToNode.bind(this),
+    Camera: this.CameraToNode.bind(this),
     BlockInstance: this.BlockInstanceToNode.bind(this),
     Pointcloud: this.PointcloudToNode.bind(this),
     Brep: this.BrepToNode.bind(this),
@@ -473,6 +474,23 @@ export default class SpeckleConverter {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     //@ts-ignore
     obj.target.units = obj.units
+  }
+
+  private async CameraToNode(obj: SpeckleObject, node: TreeNode) {
+    // V3 connector stores named views as Objects.Other.Camera.
+    // We capture position x,y,z here before child traversal can affect it.
+    const pos = obj.position as Record<string, unknown> | null | undefined
+    const fwd = obj.forward as Record<string, unknown> | null | undefined
+    if (pos && pos['x'] !== undefined && pos['y'] !== undefined && pos['z'] !== undefined) {
+      node.model.raw['_camPosX'] = pos['x']
+      node.model.raw['_camPosY'] = pos['y']
+      node.model.raw['_camPosZ'] = pos['z']
+    }
+    if (fwd && fwd['x'] !== undefined) {
+      node.model.raw['_camFwdX'] = fwd['x']
+      node.model.raw['_camFwdY'] = fwd['y']
+      node.model.raw['_camFwdZ'] = fwd['z']
+    }
   }
 
   /** This is only used for Blocks to search for convertible objects, without using the main 'traverse' function

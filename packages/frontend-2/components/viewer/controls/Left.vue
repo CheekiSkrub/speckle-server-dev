@@ -155,9 +155,7 @@
       <ViewerDataviewerPanel v-if="activePanel === 'devMode'" />
       <KeepAlive>
         <ViewerSavedViewsPanel
-          v-if="
-            isSavedViewsEnabled && isWorkspacesEnabled && activePanel === 'savedViews'
-          "
+          v-if="isSavedViewsEnabled && activePanel === 'savedViews'"
           @close="activePanel = 'none'"
         />
       </KeepAlive>

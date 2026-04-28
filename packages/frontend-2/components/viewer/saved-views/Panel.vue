@@ -124,11 +124,7 @@ graphql(`
         ...FullPermissionCheckResult
       }
     }
-    workspace {
-      id
-      seatType
-      planSupportsSavedViews: hasAccessToFeature(featureName: savedViews)
-    }
+
   }
 `)
 
@@ -165,7 +161,7 @@ const canCreateViewOrGroup = computed(
   () => project.value?.permissions.canCreateSavedView
 )
 const isViewerSeat = computed(
-  () => project.value?.workspace?.seatType === WorkspaceSeatType.Viewer
+  () => false // self-hosted: no workspace seats
 )
 const onAddView = async () => {
   if (isLoading.value) return

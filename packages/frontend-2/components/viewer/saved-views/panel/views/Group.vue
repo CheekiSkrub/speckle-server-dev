@@ -106,10 +106,7 @@ graphql(`
         ...FullPermissionCheckResult
       }
     }
-    workspace {
-      id
-      hasAccessToFeature(featureName: presentations)
-    }
+
   }
 `)
 

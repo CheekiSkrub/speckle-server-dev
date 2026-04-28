@@ -55,7 +55,8 @@ export const canCreateSavedViewPolicy: AuthPolicy<
       loaders
     )({
       projectId,
-      feature: WorkspacePlanFeatures.SavedViews
+      feature: WorkspacePlanFeatures.SavedViews,
+      allowUnworkspaced: true
     })
     if (canUseSavedViews.isErr) return err(canUseSavedViews.error)
 
