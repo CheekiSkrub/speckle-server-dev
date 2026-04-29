@@ -574,93 +574,50 @@ function setupViewerMetadata(params: {
 
     // Fix worldBox inflation from Camera geometry sub-objects (Point/Vector),
     // then hide them from the scene entirely.
-    fixWorldBox()
     hideCameraGeometry()
+    fixWorldBox()
   }
 
   const fixWorldBox = () => {
-    // Correct worldBox by removing camera geometry contributions from batch bounds.
-    //
-    // worldBox is built from batch.bounds via World.expandWorld(batch.bounds).
-    // Camera children (Point/Vector) may share batches with real geometry, so we
-    // cannot simply remove whole batches. Instead we recompute each affected
-    // batch.bounds IN-PLACE (same Box3 reference) excluding camera renderViews,
-    // then call updateWorld() to rebuild worldBox from the corrected batch bounds.
-    // Modifying in-place preserves the reference used by reduceWorld() later.
-
-    // Step 1: collect node.model.id (full URL) for all Camera child nodes.
-    // renderData.id === node.model.id (set in RenderTree.buildRenderNode).
-    const cameraChildNodeIds = new Set<string>()
-    viewer.getWorldTree().walk((node: TreeNode) => {
-      if (
-        node.model?.id &&
-        node.parent?.model?.raw?.speckle_type === 'Objects.Other.Camera'
-      ) {
-        cameraChildNodeIds.add(node.model.id as string)
-      }
-      return true
-    })
-    if (cameraChildNodeIds.size === 0) return
-
-    // Step 2: for each batch containing camera renderViews, recompute bounds
-    // in-place using only the non-camera renderViews' individual aabbs.
-    const renderer = viewer.getRenderer()
-    const allBatches = renderer.batcher.getBatches()
-    let fixedCount = 0
-
-    for (const batch of allBatches) {
-      if (!batch.renderViews || batch.renderViews.length === 0) continue
-      const hasCameraRVs = batch.renderViews.some(
-        (rv: { renderData: { id: string } }) => cameraChildNodeIds.has(rv.renderData.id)
-      )
-      if (!hasCameraRVs) continue
-
-      // Rebuild bounds from non-camera renderViews only (in-place mutation)
-      batch.bounds.makeEmpty()
-      for (const rv of batch.renderViews) {
-        if (cameraChildNodeIds.has(rv.renderData.id)) continue
-        if (rv.aabb && !rv.aabb.isEmpty()) {
-          batch.bounds.union(rv.aabb)
-        }
-      }
-      fixedCount++
+    // After hideCameraGeometry() has hidden camera nodes, visibleSceneBox
+    // correctly excludes them. Copy it into worldBox so canonical views
+    // (Front/Back/Top etc.) and the section box use the correct bounds.
+    // Nothing calls World.updateWorld() after LoadComplete (only expandWorld
+    // during load and reduceWorld on unload), so this copy persists.
+    const visibleBox = viewer.getRenderer().visibleSceneBox
+    if (!visibleBox.isEmpty()) {
+      viewer.World.worldBox.copy(visibleBox)
+      console.log('[REBUS] fixWorldBox: copied visibleSceneBox to worldBox', viewer.World.worldBox.min, viewer.World.worldBox.max)
     }
-
-    if (fixedCount === 0) return
-
-    // Step 3: recompute worldBox from the corrected batch bounds
-    const worldAny = viewer.World as unknown as { updateWorld: () => void }
-    worldAny.updateWorld()
-    console.log('[REBUS] fixWorldBox: corrected', fixedCount, 'batch(es). New worldBox:', viewer.World.worldBox.min, viewer.World.worldBox.max)
   }
 
   const hideCameraGeometry = () => {
-    // Hide ALL geometry sub-objects of Objects.Other.Camera nodes.
+    // Hide Objects.Other.Camera nodes and ALL their children (Point/Vector geometry).
     // The Rhino V3 connector attaches typed geometry to each camera:
-    //   - position: Objects.Geometry.Point  (camera eye position)
-    //   - forward:  Objects.Geometry.Vector (look direction / target)
-    //   - up:       Objects.Geometry.Vector (up vector)
-    // All three are loaded as renderable geometry, polluting the 3D scene and
-    // inflating visibleSceneBox (which drives the FIT/zoom button).
-    const cameraChildNodeIds: string[] = []
+    //   - Objects.Other.Camera     (the camera node itself)
+    //   - Objects.Geometry.Point   (camera eye position)
+    //   - Objects.Geometry.Vector  (forward / up vectors)
+    // All of these pollute the 3D scene and inflate the bounding box.
+    const nodeIds: string[] = []
     viewer.getWorldTree().walk((node: TreeNode) => {
-      if (
-        node.model?.id &&
-        node.parent?.model?.raw?.speckle_type === 'Objects.Other.Camera'
-      ) {
-        cameraChildNodeIds.push(node.model.id)
+      const raw = node.model?.raw
+      if (!node.model?.id || !raw) return true
+      const isCameraNode = raw.speckle_type === 'Objects.Other.Camera'
+      const isCameraChild = node.parent?.model?.raw?.speckle_type === 'Objects.Other.Camera'
+      if (isCameraNode || isCameraChild) {
+        nodeIds.push(node.model.id)
       }
       return true
     })
-    if (cameraChildNodeIds.length === 0) return
+    if (nodeIds.length === 0) return
 
     viewer.getExtension(FilteringExtension).hideObjects(
-      cameraChildNodeIds,
+      nodeIds,
       'rebus-camera-geometry', // stateKey — isolated from user filtering
       false, // includeDescendants
       false  // ghost = false (fully hidden, not ghosted)
     )
-    console.log('[REBUS] hideCameraGeometry: hid', cameraChildNodeIds.length, 'camera geometry nodes from scene')
+    console.log('[REBUS] hideCameraGeometry: hid', nodeIds.length, 'camera nodes from scene')
   }
   const updateFilteringState = (newState: MaybeNullOrUndefined<FilteringState>) => {
     // treating {}, null, undefined as the same, to avoid unnecessary updates
