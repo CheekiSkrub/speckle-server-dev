@@ -590,19 +590,19 @@ function setupViewerMetadata(params: {
     // This is permanent (survives future updateWorld() calls) unlike .copy() which
     // only patches the result and gets overwritten on the next updateWorld() call.
 
-    // Step 1: collect raw IDs of all Camera child nodes
-    const cameraChildRawIds = new Set<string>()
+    // Step 1: collect node.model.id (full URL) for all Camera child nodes.
+    // renderData.id === node.model.id (set in RenderTree.buildRenderNode), NOT raw.id.
+    const cameraChildNodeIds = new Set<string>()
     viewer.getWorldTree().walk((node: TreeNode) => {
-      const raw = node.model?.raw
       if (
-        raw?.id &&
+        node.model?.id &&
         node.parent?.model?.raw?.speckle_type === 'Objects.Other.Camera'
       ) {
-        cameraChildRawIds.add(raw.id as string)
+        cameraChildNodeIds.add(node.model.id as string)
       }
       return true
     })
-    if (cameraChildRawIds.size === 0) return
+    if (cameraChildNodeIds.size === 0) return
 
     // Step 2: find batches that consist entirely of camera child objects
     const renderer = viewer.getRenderer()
@@ -611,7 +611,7 @@ function setupViewerMetadata(params: {
     for (const batch of allBatches) {
       if (!batch.renderViews || batch.renderViews.length === 0) continue
       const allCamera = batch.renderViews.every(
-        (rv: { renderData: { id: string } }) => cameraChildRawIds.has(rv.renderData.id)
+        (rv: { renderData: { id: string } }) => cameraChildNodeIds.has(rv.renderData.id)
       )
       if (allCamera) {
         cameraBatchBounds.add(batch.bounds)
