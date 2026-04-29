@@ -579,19 +579,17 @@ function setupViewerMetadata(params: {
   }
 
   const fixWorldBox = () => {
-    // Remove camera geometry batches from viewer.World's private 'boxes' array so
-    // updateWorld() no longer inflates worldBox with camera Point/Vector bounds.
+    // Correct worldBox by removing camera geometry contributions from batch bounds.
     //
-    // World.expandWorld(batch.bounds) pushes each batch's Box3 reference into 'boxes'.
-    // updateWorld() unions all 'boxes' to produce worldBox. Because 'boxes' is private,
-    // we access it via (viewer.World as any).boxes, find the batch bounds references that
-    // belong entirely to camera children, splice them out, then call updateWorld().
-    //
-    // This is permanent (survives future updateWorld() calls) unlike .copy() which
-    // only patches the result and gets overwritten on the next updateWorld() call.
+    // worldBox is built from batch.bounds via World.expandWorld(batch.bounds).
+    // Camera children (Point/Vector) may share batches with real geometry, so we
+    // cannot simply remove whole batches. Instead we recompute each affected
+    // batch.bounds IN-PLACE (same Box3 reference) excluding camera renderViews,
+    // then call updateWorld() to rebuild worldBox from the corrected batch bounds.
+    // Modifying in-place preserves the reference used by reduceWorld() later.
 
     // Step 1: collect node.model.id (full URL) for all Camera child nodes.
-    // renderData.id === node.model.id (set in RenderTree.buildRenderNode), NOT raw.id.
+    // renderData.id === node.model.id (set in RenderTree.buildRenderNode).
     const cameraChildNodeIds = new Set<string>()
     viewer.getWorldTree().walk((node: TreeNode) => {
       if (
@@ -604,26 +602,36 @@ function setupViewerMetadata(params: {
     })
     if (cameraChildNodeIds.size === 0) return
 
-    // Step 2: find batches that consist entirely of camera child objects
+    // Step 2: for each batch containing camera renderViews, recompute bounds
+    // in-place using only the non-camera renderViews' individual aabbs.
     const renderer = viewer.getRenderer()
     const allBatches = renderer.batcher.getBatches()
-    const cameraBatchBounds = new Set<Box3>()
+    let fixedCount = 0
+
     for (const batch of allBatches) {
       if (!batch.renderViews || batch.renderViews.length === 0) continue
-      const allCamera = batch.renderViews.every(
+      const hasCameraRVs = batch.renderViews.some(
         (rv: { renderData: { id: string } }) => cameraChildNodeIds.has(rv.renderData.id)
       )
-      if (allCamera) {
-        cameraBatchBounds.add(batch.bounds)
-      }
-    }
-    if (cameraBatchBounds.size === 0) return
+      if (!hasCameraRVs) continue
 
-    // Step 3: splice those bounds out of the private boxes array, then recalculate
-    const worldAny = viewer.World as unknown as { boxes: Box3[]; updateWorld: () => void }
-    worldAny.boxes = worldAny.boxes.filter((b: Box3) => !cameraBatchBounds.has(b))
+      // Rebuild bounds from non-camera renderViews only (in-place mutation)
+      batch.bounds.makeEmpty()
+      for (const rv of batch.renderViews) {
+        if (cameraChildNodeIds.has(rv.renderData.id)) continue
+        if (rv.aabb && !rv.aabb.isEmpty()) {
+          batch.bounds.union(rv.aabb)
+        }
+      }
+      fixedCount++
+    }
+
+    if (fixedCount === 0) return
+
+    // Step 3: recompute worldBox from the corrected batch bounds
+    const worldAny = viewer.World as unknown as { updateWorld: () => void }
     worldAny.updateWorld()
-    console.log('[REBUS] fixWorldBox: removed', cameraBatchBounds.size, 'camera batch(es). New worldBox:', viewer.World.worldBox.min, viewer.World.worldBox.max)
+    console.log('[REBUS] fixWorldBox: corrected', fixedCount, 'batch(es). New worldBox:', viewer.World.worldBox.min, viewer.World.worldBox.max)
   }
 
   const hideCameraGeometry = () => {
