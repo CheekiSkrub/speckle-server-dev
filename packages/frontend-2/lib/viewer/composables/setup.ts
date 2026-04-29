@@ -577,56 +577,37 @@ function setupViewerMetadata(params: {
     // These points represent camera positions (e.g. z=300) and are irrelevant to
     // the actual geometry bounds, causing canonical views to zoom out too far.
     fixWorldBox()
+    hideCameraPoints()
   }
 
-  const fixWorldBox = () => {
-    // Collect IDs of all Camera nodes
-    const cameraRawIds = new Set<string>()
-    viewer.getWorldTree().walk((node: TreeNode) => {
-      const raw = node.model?.raw
-      if (raw?.speckle_type === 'Objects.Other.Camera' && raw?.id) {
-        cameraRawIds.add(raw.id as string)
-      }
-      return true
-    })
-    if (cameraRawIds.size === 0) return
-
-    // Collect IDs of Point nodes whose immediate parent is a Camera node
-    const excludedIds = new Set<string>()
+  const hideCameraPoints = () => {
+    // Hide Objects.Geometry.Point sub-objects of Objects.Other.Camera nodes.
+    // These are camera position markers from the Rhino connector that pollute the
+    // model space as visible 3D points. Hiding them:
+    //   1. Removes them from the scene (they were never meant to be visible)
+    //   2. Fixes the FIT button (zoomExtents uses visibleSceneBox, which respects visibility)
+    // Note: fixWorldBox() is still needed separately — worldBox is set from loaded batches
+    // and is unaffected by visibility state.
+    const pointNodeIds: string[] = []
     viewer.getWorldTree().walk((node: TreeNode) => {
       const raw = node.model?.raw
       if (
         raw?.speckle_type === 'Objects.Geometry.Point' &&
-        raw?.id &&
         node.parent?.model?.raw?.speckle_type === 'Objects.Other.Camera'
       ) {
-        excludedIds.add(raw.id as string)
+        pointNodeIds.push(node.model.id)
       }
       return true
     })
-    if (excludedIds.size === 0) return
+    if (pointNodeIds.length === 0) return
 
-    // Rebuild worldBox excluding the camera position Point nodes
-    const corrected = new Box3()
-    corrected.makeEmpty()
-    viewer.getWorldTree().walk((node: TreeNode) => {
-      const raw = node.model?.raw
-      if (raw?.id && excludedIds.has(raw.id as string)) return true
-      const rv = node.model?.renderView
-      if (rv?.aabb && !rv.aabb.isEmpty()) {
-        corrected.union(rv.aabb)
-      }
-      return true
-    })
-
-    if (!corrected.isEmpty()) {
-      viewer.World.worldBox.copy(corrected)
-      console.log('[REBUS] fixWorldBox: corrected worldBox', {
-        min: corrected.min,
-        max: corrected.max,
-        excluded: excludedIds.size
-      })
-    }
+    viewer.getExtension(FilteringExtension).hideObjects(
+      pointNodeIds,
+      'rebus-camera-points', // stateKey — keeps this isolated from user filtering
+      false, // includeDescendants
+      false  // ghost (false = fully hidden, not ghosted)
+    )
+    console.log('[REBUS] hideCameraPoints: hid', pointNodeIds.length, 'camera position Points from scene')
   }
   const updateFilteringState = (newState: MaybeNullOrUndefined<FilteringState>) => {
     // treating {}, null, undefined as the same, to avoid unnecessary updates
