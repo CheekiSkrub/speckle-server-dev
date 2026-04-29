@@ -1,5 +1,5 @@
 # Speckle-DEV Setup Notes
-Date created: 2026-04-27 | Last updated: 2026-04-29 (v2.0.1 — custom preview-service, camera geometry fix in thumbnails)
+Date created: 2026-04-27 | Last updated: 2026-04-29 (v2.1.0 — unified version across all three custom images)
 
 > Mirror of this file lives on the dev VM at `/home/rebus/speckle-server-dev/rebus/` (git-tracked).
 
@@ -62,9 +62,9 @@ All compose files live at `/opt/speckle/` on the VM.
 
 | Service | Image | Host port |
 |---|---|---|
-| speckle-frontend-2 | `speckle-frontend-2-rebus:v2.0.0` ⚠️ custom build | 80 |
-| speckle-server | `speckle/speckle-server:latest` | 3000 |
-| preview-service | `speckle-preview-service-rebus:v2.0.1` ⚠️ custom build | — (internal) |
+| speckle-frontend-2 | `speckle-frontend-2-rebus:v2.1.0` ⚠️ custom build | 80 |
+| speckle-server | `speckle-server-rebus:v2.1.0` ⚠️ custom build | 3000 |
+| preview-service | `speckle-preview-service-rebus:v2.1.0` ⚠️ custom build | — (internal) |
 | minio | `minio/minio` | 9000 (S3), 9001 (console) |
 | postgres | `postgres:16.9-alpine` | — (internal) |
 | redis (valkey) | `valkey/valkey:8-alpine` | — (internal) |
@@ -224,4 +224,4 @@ Docker CE (`docker.service`) is enabled as a systemd service. All containers hav
 | Data | Live production | Fresh/empty |
 | RAM | 16 GB | 8 GB |
 | `speckle-update` | Interactive menu — lists local `speckle-frontend-2-rebus:v*` images, no Docker Hub | Simple pull-and-restart |
-| Backups | TUI av
+| Backups |
