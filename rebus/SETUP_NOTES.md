@@ -1,5 +1,5 @@
 # Speckle-DEV Setup Notes
-Date created: 2026-04-27 | Last updated: 2026-04-29 (camera view fixes v1.8.0)
+Date created: 2026-04-27 | Last updated: 2026-04-29 (camera view fixes v1.9.0)
 
 > Mirror of this file lives on the dev VM at `/home/rebus/speckle-server-dev/rebus/` (git-tracked).
 
@@ -62,7 +62,7 @@ All compose files live at `/opt/speckle/` on the VM.
 
 | Service | Image | Host port |
 |---|---|---|
-| speckle-frontend-2 | `speckle-frontend-2-rebus:v1.8.0` ⚠️ custom build | 80 |
+| speckle-frontend-2 | `speckle-frontend-2-rebus:v1.9.0` ⚠️ custom build | 80 |
 | speckle-server | `speckle/speckle-server:latest` | 3000 |
 | minio | `minio/minio` | 9000 (S3), 9001 (console) |
 | postgres | `postgres:16.9-alpine` | — (internal) |
