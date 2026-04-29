@@ -1,5 +1,5 @@
 # Speckle-DEV Setup Notes
-Date created: 2026-04-27 | Last updated: 2026-04-29 (v2.0.0 — no-op Camera converter, version strings, full docs)
+Date created: 2026-04-27 | Last updated: 2026-04-29 (v2.0.1 — custom preview-service, camera geometry fix in thumbnails)
 
 > Mirror of this file lives on the dev VM at `/home/rebus/speckle-server-dev/rebus/` (git-tracked).
 
@@ -64,6 +64,7 @@ All compose files live at `/opt/speckle/` on the VM.
 |---|---|---|
 | speckle-frontend-2 | `speckle-frontend-2-rebus:v2.0.0` ⚠️ custom build | 80 |
 | speckle-server | `speckle/speckle-server:latest` | 3000 |
+| preview-service | `speckle-preview-service-rebus:v2.0.1` ⚠️ custom build | — (internal) |
 | minio | `minio/minio` | 9000 (S3), 9001 (console) |
 | postgres | `postgres:16.9-alpine` | — (internal) |
 | redis (valkey) | `valkey/valkey:8-alpine` | — (internal) |
@@ -76,7 +77,7 @@ All compose files live at `/opt/speckle/` on the VM.
 | Variable | Production | Dev |
 |---|---|---|
 | `CANONICAL_URL` | `https://speckle.rebus.industries` | `https://speckle-dev.rebus.industries` |
-| Image tags | `2.31.2` (pinned) | `latest` (pre-release) |
+| Image tags | `2.31.3-alpha.1254` backend / `v2.0.0` custom frontend | `latest` backend / `v2.0.0` custom frontend |
 | `SESSION_SECRET` | (prod secret) | Separate dev secret |
 | Data | Live production data | Fresh / empty |
 
@@ -222,14 +223,5 @@ Docker CE (`docker.service`) is enabled as a systemd service. All containers hav
 | Speckle version | 2.31.2 (pinned) | `:latest` (pre-release) |
 | Data | Live production | Fresh/empty |
 | RAM | 16 GB | 8 GB |
-| `speckle-update` | Interactive, checks Docker Hub for stable/pre-release | Simple pull-and-restart |
-| Backups | Scheduled (pending cron setup) | None configured |
-
----
-
-## Backups
-
-```bash
-speckle-backup          # run a backup now
-speckle-backup list     # list existing backups
-speckle-backup status   # show l
+| `speckle-update` | Interactive menu — lists local `speckle-frontend-2-rebus:v*` images, no Docker Hub | Simple pull-and-restart |
+| Backups | TUI av
