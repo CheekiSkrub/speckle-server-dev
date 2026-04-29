@@ -580,15 +580,18 @@ function setupViewerMetadata(params: {
 
   const fixWorldBox = () => {
     // After hideCameraGeometry() has hidden camera nodes, visibleSceneBox
-    // correctly excludes them. Copy it into worldBox so canonical views
-    // (Front/Back/Top etc.) and the section box use the correct bounds.
-    // Nothing calls World.updateWorld() after LoadComplete (only expandWorld
-    // during load and reduceWorld on unload), so this copy persists.
-    const visibleBox = viewer.getRenderer().visibleSceneBox
-    if (!visibleBox.isEmpty()) {
-      viewer.World.worldBox.copy(visibleBox)
-      console.log('[REBUS] fixWorldBox: copied visibleSceneBox to worldBox', viewer.World.worldBox.min, viewer.World.worldBox.max)
-    }
+    // correctly excludes them. We defer one animation frame to allow
+    // FilteringExtension to finish updating batch visible ranges before reading
+    // visibleSceneBox — if we read it synchronously the ranges may not yet reflect
+    // the hide state. After the frame, copy into worldBox (persists because
+    // World.updateWorld() is only called during load/unload, not normal viewing).
+    requestAnimationFrame(() => {
+      const visibleBox = viewer.getRenderer().visibleSceneBox
+      if (!visibleBox.isEmpty()) {
+        viewer.World.worldBox.copy(visibleBox)
+        console.log('[REBUS] fixWorldBox: worldBox set from visibleSceneBox', viewer.World.worldBox.min, viewer.World.worldBox.max)
+      }
+    })
   }
 
   const hideCameraGeometry = () => {
