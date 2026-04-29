@@ -1,5 +1,5 @@
 # Speckle-DEV Setup Notes
-Date created: 2026-04-27 | Last updated: 2026-04-29 (v1.11.0 — hide all Camera geometry, fix missing fixWorldBox)
+Date created: 2026-04-27 | Last updated: 2026-04-29 (v2.0.0 — no-op Camera converter, version strings, full docs)
 
 > Mirror of this file lives on the dev VM at `/home/rebus/speckle-server-dev/rebus/` (git-tracked).
 
@@ -55,14 +55,14 @@ All compose files live at `/opt/speckle/` on the VM.
 | File | Purpose |
 |---|---|
 | `docker-compose.yml` | Main stack. `:latest` Speckle images, all URLs → `speckle-dev.rebus.industries`. Reference copy: `docker-compose.yml` in this folder. |
-| `docker-compose.override.yml` | Host port bindings. Reference copy: `docker-compose.override.yml` in this folder. |
+| `docker-compose.override.yml` | Host port bindings + custom frontend image. Reference copy: `docker-compose.override.yml` in this folder. |
 | `docker-compose.yml.prod-orig` | Backup of the production compose from before the dev conversion. |
 
 ### Services & ports
 
 | Service | Image | Host port |
 |---|---|---|
-| speckle-frontend-2 | `speckle-frontend-2-rebus:v1.11.0` ⚠️ custom build | 80 |
+| speckle-frontend-2 | `speckle-frontend-2-rebus:v2.0.0` ⚠️ custom build | 80 |
 | speckle-server | `speckle/speckle-server:latest` | 3000 |
 | minio | `minio/minio` | 9000 (S3), 9001 (console) |
 | postgres | `postgres:16.9-alpine` | — (internal) |
@@ -232,6 +232,4 @@ Docker CE (`docker.service`) is enabled as a systemd service. All containers hav
 ```bash
 speckle-backup          # run a backup now
 speckle-backup list     # list existing backups
-speckle-backup status   # show log of last backup
-```
-
+speckle-backup status   # show l
