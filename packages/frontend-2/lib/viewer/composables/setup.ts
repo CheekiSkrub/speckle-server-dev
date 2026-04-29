@@ -572,42 +572,72 @@ function setupViewerMetadata(params: {
 
     views.value = [...v2Views, ...v3Views]
 
-    // Fix worldBox inflation caused by Objects.Geometry.Point sub-objects
-    // from Objects.Other.Camera nodes being included in the scene bounding box.
-    // These points represent camera positions (e.g. z=300) and are irrelevant to
-    // the actual geometry bounds, causing canonical views to zoom out too far.
+    // Fix worldBox inflation from Camera geometry sub-objects (Point/Vector),
+    // then hide them from the scene entirely.
     fixWorldBox()
-    hideCameraPoints()
+    hideCameraGeometry()
   }
 
-  const hideCameraPoints = () => {
-    // Hide Objects.Geometry.Point sub-objects of Objects.Other.Camera nodes.
-    // These are camera position markers from the Rhino connector that pollute the
-    // model space as visible 3D points. Hiding them:
-    //   1. Removes them from the scene (they were never meant to be visible)
-    //   2. Fixes the FIT button (zoomExtents uses visibleSceneBox, which respects visibility)
-    // Note: fixWorldBox() is still needed separately — worldBox is set from loaded batches
-    // and is unaffected by visibility state.
-    const pointNodeIds: string[] = []
+  const fixWorldBox = () => {
+    // Rebuild viewer.World.worldBox excluding ALL direct geometry children of
+    // Objects.Other.Camera nodes (position Point, forward Vector, up Vector).
+    // These inflate worldBox to unrealistic bounds (e.g. z=300), causing
+    // canonical views (Front/Back/Top etc.) to zoom out too far.
+    const cameraChildIds = new Set<string>()
     viewer.getWorldTree().walk((node: TreeNode) => {
       const raw = node.model?.raw
       if (
-        raw?.speckle_type === 'Objects.Geometry.Point' &&
+        raw?.id &&
         node.parent?.model?.raw?.speckle_type === 'Objects.Other.Camera'
       ) {
-        pointNodeIds.push(node.model.id)
+        cameraChildIds.add(raw.id as string)
       }
       return true
     })
-    if (pointNodeIds.length === 0) return
+    if (cameraChildIds.size === 0) return
+    const corrected = new Box3()
+    corrected.makeEmpty()
+    viewer.getWorldTree().walk((node: TreeNode) => {
+      const raw = node.model?.raw
+      if (raw?.id && cameraChildIds.has(raw.id as string)) return true
+      const rv = node.model?.renderView
+      if (rv?.aabb && !rv.aabb.isEmpty()) {
+        corrected.union(rv.aabb)
+      }
+      return true
+    })
+    if (!corrected.isEmpty()) {
+      viewer.World.worldBox.copy(corrected)
+    }
+  }
+
+  const hideCameraGeometry = () => {
+    // Hide ALL geometry sub-objects of Objects.Other.Camera nodes.
+    // The Rhino V3 connector attaches typed geometry to each camera:
+    //   - position: Objects.Geometry.Point  (camera eye position)
+    //   - forward:  Objects.Geometry.Vector (look direction / target)
+    //   - up:       Objects.Geometry.Vector (up vector)
+    // All three are loaded as renderable geometry, polluting the 3D scene and
+    // inflating visibleSceneBox (which drives the FIT/zoom button).
+    const cameraChildNodeIds: string[] = []
+    viewer.getWorldTree().walk((node: TreeNode) => {
+      if (
+        node.model?.id &&
+        node.parent?.model?.raw?.speckle_type === 'Objects.Other.Camera'
+      ) {
+        cameraChildNodeIds.push(node.model.id)
+      }
+      return true
+    })
+    if (cameraChildNodeIds.length === 0) return
 
     viewer.getExtension(FilteringExtension).hideObjects(
-      pointNodeIds,
-      'rebus-camera-points', // stateKey — keeps this isolated from user filtering
+      cameraChildNodeIds,
+      'rebus-camera-geometry', // stateKey — isolated from user filtering
       false, // includeDescendants
-      false  // ghost (false = fully hidden, not ghosted)
+      false  // ghost = false (fully hidden, not ghosted)
     )
-    console.log('[REBUS] hideCameraPoints: hid', pointNodeIds.length, 'camera position Points from scene')
+    console.log('[REBUS] hideCameraGeometry: hid', cameraChildNodeIds.length, 'camera geometry nodes from scene')
   }
   const updateFilteringState = (newState: MaybeNullOrUndefined<FilteringState>) => {
     // treating {}, null, undefined as the same, to avoid unnecessary updates
