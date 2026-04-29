@@ -623,10 +623,7 @@ function setupViewerMetadata(params: {
     const worldAny = viewer.World as unknown as { boxes: Box3[]; updateWorld: () => void }
     worldAny.boxes = worldAny.boxes.filter((b: Box3) => !cameraBatchBounds.has(b))
     worldAny.updateWorld()
-    console.log(
-      ,
-      , viewer.World.worldBox.min, viewer.World.worldBox.max
-    )
+    console.log('[REBUS] fixWorldBox: removed', cameraBatchBounds.size, 'camera batch(es). New worldBox:', viewer.World.worldBox.min, viewer.World.worldBox.max)
   }
 
   const hideCameraGeometry = () => {
