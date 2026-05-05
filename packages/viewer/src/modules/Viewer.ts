@@ -285,41 +285,13 @@ export class Viewer extends EventEmitter implements IViewer {
   }
 
   public getViews(): SpeckleView[] {
-    // V2: View3D type nodes (old connector format)
-    const v2Views = this.tree
+    return this.tree
       .findAll((node: TreeNode) => {
         return node.model.renderView?.speckleType === SpeckleType.View3D
       })
-      .map((v: TreeNode) => v.model.raw as SpeckleView)
-
-    // V3: Camera type nodes (new connector format - Objects.Other.Camera)
-    const v3Views = this.tree
-      .findAll((node: TreeNode) => {
-        const raw = node.model.raw
-        return raw?.speckle_type === 'Objects.Other.Camera' && !!raw?.name
-      })
       .map((v: TreeNode) => {
-        const raw = v.model.raw
-        // Position stored by CameraToNode (may be undefined if objectloader strips Point coords)
-        const px = (raw['_camPosX'] ?? (raw.position as Record<string, number>)?.x ?? 0) as number
-        const py = (raw['_camPosY'] ?? (raw.position as Record<string, number>)?.y ?? 0) as number
-        const pz = (raw['_camPosZ'] ?? (raw.position as Record<string, number>)?.z ?? 0) as number
-        // Forward vector is reliably available
-        const fwd = raw.forward as Record<string, number> | null | undefined
-        const fx = (raw['_camFwdX'] ?? fwd?.x ?? 0) as number
-        const fy = (raw['_camFwdY'] ?? fwd?.y ?? 0) as number
-        const fz = (raw['_camFwdZ'] ?? fwd?.z ?? 0) as number
-        return {
-          id: raw.id,
-          speckle_type: raw.speckle_type,
-          applicationId: raw.applicationId,
-          name: raw.name,
-          origin: { x: px, y: py, z: pz },
-          target: { x: px + fx, y: py + fy, z: pz + fz }
-        } as unknown as SpeckleView
+        return v.model.raw as SpeckleView
       })
-
-    return [...v2Views, ...v3Views]
   }
 
   public screenshot(): Promise<string> {

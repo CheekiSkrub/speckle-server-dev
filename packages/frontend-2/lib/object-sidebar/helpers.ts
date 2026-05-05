@@ -67,6 +67,31 @@ export function getHeaderAndSubheaderForSpeckleObject(
     } as HeaderSubheader
   }
 
+  // Handle collections (layers, levels, IFC groups, etc.)
+  if (speckleType.includes('Collections.Collection')) {
+    const collectionType = rawSpeckleData.collectionType as string | undefined
+    // Compound speckle_type e.g. ...Collection:Speckle.Core.Models.Layer (old Rhino connector)
+    const isLegacyLayer = speckleType.includes(':Speckle.Core.Models.Layer')
+    const typeLabel =
+      isLegacyLayer ? 'Layer' :
+      collectionType === 'layer' ? 'Layer' :
+      collectionType === 'rhino layer' ? 'Layer' :
+      collectionType === 'model' ? 'Model' :
+      collectionType === 'rhino model' ? 'Model' :
+      collectionType === 'root' ? 'Model' :
+      collectionType === 'level' ? 'Level' :
+      collectionType === 'type' ? 'Type' :
+      'Collection'
+    return {
+      header: cleanName(
+        (rawSpeckleData.name as string) ||
+          (rawSpeckleData.Name as string) ||
+          'Collection'
+      ),
+      subheader: typeLabel
+    } as HeaderSubheader
+  }
+
   // LAST DITCH EFFORT
   return {
     header: cleanName(
