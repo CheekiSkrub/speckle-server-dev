@@ -5,7 +5,7 @@
       <div class="w-full">
         <p class="text-sm">
           <span class="font-medium">Current version:</span>
-          REBUS v2.3.0
+          REBUS v2.4.2
         </p>
         <p class="text-sm text-foreground-2 pt-1">Custom REBUS build — update checks disabled.</p>
       </div>

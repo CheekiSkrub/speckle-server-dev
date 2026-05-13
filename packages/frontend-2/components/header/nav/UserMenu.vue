@@ -136,7 +136,7 @@ const { copyReference } = useGenerateErrorReference()
 
 const showInviteDialog = ref(false)
 
-const version = computed(() => 'REBUS v2.3.0') // REBUS: hardcoded, replaces serverInfo.value?.version which shows 'custom'
+const version = computed(() => 'REBUS v2.4.2') // REBUS: hardcoded, replaces serverInfo.value?.version which shows 'custom'
 const isAdmin = computed(() => activeUser.value?.role === Roles.Server.Admin)
 
 const toggleInviteDialog = () => {
