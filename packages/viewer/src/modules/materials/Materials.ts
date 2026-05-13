@@ -1,4 +1,14 @@
-import { Color, DoubleSide, FrontSide, Material, Texture, Vector2 } from 'three'
+import {
+  Color,
+  DoubleSide,
+  FrontSide,
+  Material,
+  RepeatWrapping,
+  sRGBEncoding,
+  Texture,
+  TextureLoader,
+  Vector2
+} from 'three'
 import { GeometryType } from '../batching/Batch.js'
 import { type TreeNode } from '../tree/WorldTree.js'
 import { NodeRenderView } from '../tree/NodeRenderView.js'
@@ -30,6 +40,15 @@ export interface RenderMaterial extends MinimalMaterial {
   roughness: number
   metalness: number
   vertexColors: boolean
+  diffuseTexture?: string
+  diffuseTextureUrl?: string
+  baseColorTexture?: string
+  baseColorTextureUrl?: string
+  emissiveTexture?: string
+  emissiveTextureUrl?: string
+  pbrEmissionTexture?: string
+  pbrEmissionTextureUrl?: string
+  emissiveIntensity?: number
 }
 
 export interface DisplayStyle extends MinimalMaterial {
@@ -139,6 +158,18 @@ export default class Materials {
             : 1,
         roughness: materialNode.model.raw.renderMaterial.roughness,
         metalness: materialNode.model.raw.renderMaterial.metalness,
+        diffuseTexture: materialNode.model.raw.renderMaterial.diffuseTexture,
+        diffuseTextureUrl: materialNode.model.raw.renderMaterial.diffuseTextureUrl,
+        baseColorTexture: materialNode.model.raw.renderMaterial.baseColorTexture,
+        baseColorTextureUrl:
+          materialNode.model.raw.renderMaterial.baseColorTextureUrl,
+        emissiveTexture: materialNode.model.raw.renderMaterial.emissiveTexture,
+        emissiveTextureUrl: materialNode.model.raw.renderMaterial.emissiveTextureUrl,
+        pbrEmissionTexture:
+          materialNode.model.raw.renderMaterial.pbrEmissionTexture,
+        pbrEmissionTextureUrl:
+          materialNode.model.raw.renderMaterial.pbrEmissionTextureUrl,
+        emissiveIntensity: materialNode.model.raw.renderMaterial.emissiveIntensity,
         vertexColors:
           (geometryNode && colorsChunkArray && colorsChunkArray.length > 0) ?? false
       }
@@ -200,7 +231,15 @@ export default class Materials {
       '/' +
       renderMaterial.roughness.toString() +
       '/' +
-      renderMaterial.metalness.toString()
+      renderMaterial.metalness.toString() +
+      '/' +
+      (renderMaterial.diffuseTexture || '') +
+      '/' +
+      (renderMaterial.baseColorTexture || '') +
+      '/' +
+      (renderMaterial.emissiveTexture || '') +
+      '/' +
+      (renderMaterial.pbrEmissionTexture || '')
     )
   }
 
@@ -680,7 +719,8 @@ export default class Materials {
   private makeMeshMaterial(materialData: RenderMaterial): Material {
     const mat: SpeckleStandardMaterial = new SpeckleStandardMaterial({
       color: materialData.color,
-      emissive: 0x0, // materialData.emissive. Disabling this for now
+      emissive: materialData.emissive || 0x0,
+      emissiveIntensity: materialData.emissiveIntensity ?? 1,
       roughness: materialData.roughness,
       metalness: materialData.metalness,
       opacity: materialData.opacity,
@@ -692,8 +732,45 @@ export default class Materials {
     mat.clipShadows = true
     mat.color.convertSRGBToLinear()
     mat.emissive.convertSRGBToLinear()
+    this.applyRenderMaterialTextures(mat, materialData)
     mat.updateArtificialRoughness(Materials.DEFAULT_ARTIFICIAL_ROUGHNESS)
     return mat
+  }
+
+  private applyRenderMaterialTextures(
+    mat: SpeckleStandardMaterial,
+    materialData: RenderMaterial
+  ) {
+    const loader = new TextureLoader()
+    const configureTexture = (texture: Texture) => {
+      texture.wrapS = RepeatWrapping
+      texture.wrapT = RepeatWrapping
+      texture.encoding = sRGBEncoding
+      texture.needsUpdate = true
+      return texture
+    }
+    const load = (url?: string): Texture | null => {
+      if (!url) return null
+      const texture = loader.load(url, (loaded) => {
+        configureTexture(loaded)
+        mat.needsUpdate = true
+      })
+      return configureTexture(texture)
+    }
+
+    const albedo = load(materialData.diffuseTextureUrl || materialData.baseColorTextureUrl)
+    if (albedo) {
+      mat.map = albedo
+      mat.needsUpdate = true
+    }
+
+    const emissive = load(
+      materialData.emissiveTextureUrl || materialData.pbrEmissionTextureUrl
+    )
+    if (emissive) {
+      mat.emissiveMap = emissive
+      mat.needsUpdate = true
+    }
   }
 
   private makeLineMaterial(materialData: DisplayStyle): Material {

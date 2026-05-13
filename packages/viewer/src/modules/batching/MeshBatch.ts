@@ -217,6 +217,7 @@ export class MeshBatch extends PrimitiveBatch {
 
     const hasVertexColors =
       this.renderViews[0].renderData.geometry.attributes?.COLOR !== undefined
+    const hasUVs = this.renderViews[0].renderData.geometry.attributes?.UV !== undefined
     const indices =
       attributeCount >= 65535 || indicesCount >= 65535
         ? new Uint32Array(indicesCount)
@@ -226,10 +227,12 @@ export class MeshBatch extends PrimitiveBatch {
       : new Float32Array(attributeCount)
     const color = new Float32Array(hasVertexColors ? attributeCount : 0)
     color.fill(1)
+    const uv = new Float32Array(hasUVs ? (attributeCount / 3) * 2 : 0)
     const batchIndices = new Float32Array(attributeCount / 3)
     const normals = new Float32Array(attributeCount)
 
     let offset = 0
+    let uvOffset = 0
     let arrayOffset = 0
     const batchObjects = []
 
@@ -264,6 +267,10 @@ export class MeshBatch extends PrimitiveBatch {
 
       if (geometry.attributes.COLOR) {
         geometry.attributes?.COLOR.copyToBuffer(color, offset)
+      }
+
+      if (hasUVs && geometry.attributes.UV) {
+        geometry.attributes.UV.copyToBuffer(uv, uvOffset)
       }
 
       /** We either copy over the provided vertex normals */
@@ -319,6 +326,7 @@ export class MeshBatch extends PrimitiveBatch {
       }
 
       offset += geometry.attributes.POSITION.length
+      uvOffset += (geometry.attributes.POSITION.length / 3) * 2
       arrayOffset += geometry.attributes.INDEX.length
 
       this.renderViews[k].disposeGeometry()
@@ -329,7 +337,8 @@ export class MeshBatch extends PrimitiveBatch {
       position,
       normals,
       batchIndices,
-      hasVertexColors ? color : undefined
+      hasVertexColors ? color : undefined,
+      hasUVs ? uv : undefined
     )
 
     if (needsRTE) Geometry.updateRTEGeometry(geometry, position)
@@ -359,7 +368,8 @@ export class MeshBatch extends PrimitiveBatch {
     position: Float64Array | Float32Array,
     normals: Float32Array,
     batchIndices: Float32Array,
-    color?: Float32Array
+    color?: Float32Array,
+    uv?: Float32Array
   ): BufferGeometry {
     const geometry = new BufferGeometry()
     if (position.length >= 65535 || indices.length >= 65535) {
@@ -391,6 +401,10 @@ export class MeshBatch extends PrimitiveBatch {
 
     if (color) {
       geometry.setAttribute('color', new Float32BufferAttribute(color, 3))
+    }
+
+    if (uv) {
+      geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2))
     }
 
     const buffer = new Float32Array(position.length / 3)

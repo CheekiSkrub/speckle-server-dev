@@ -55,7 +55,7 @@ export class SpeckleLoader extends Loader {
       return
     }
 
-    this.converter = new SpeckleConverter(this.loader, this.tree)
+    this.converter = new SpeckleConverter(this.loader, this.tree, resource)
   }
 
   protected initObjectLoader(

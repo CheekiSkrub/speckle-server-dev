@@ -14,6 +14,31 @@ const _vec33 = new Vector3()
 const _vec34 = new Vector3()
 const _vec35 = new Vector3()
 
+const chunkArrayFromRaw = (raw: unknown): ChunkArray | undefined => {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const first = raw[0] as DataChunk | number | undefined
+  if (typeof first === 'number') {
+    return new ChunkArray([
+      {
+        id: MathUtils.generateUUID(),
+        references: 1,
+        data: raw as number[]
+      }
+    ])
+  }
+  if (Array.isArray(first)) {
+    return new ChunkArray([
+      {
+        id: MathUtils.generateUUID(),
+        references: 1,
+        data: (raw as number[][]).flat()
+      }
+    ])
+  }
+  const chunks = (raw as DataChunk[]).filter((chunk) => Array.isArray(chunk?.data))
+  return chunks.length ? new ChunkArray(chunks) : undefined
+}
+
 export class SpeckleGeometryConverter extends GeometryConverter {
   public typeLookupTable: { [type: string]: SpeckleType } = {}
   public meshTriangulationTime = 0
@@ -309,6 +334,7 @@ export class SpeckleGeometryConverter extends GeometryConverter {
     let normals = node.raw.vertexNormals
       ? new ChunkArray(node.raw.vertexNormals)
       : undefined
+    let uvs = chunkArrayFromRaw(node.raw.textureCoordinates)
     let colors = undefined
     let k = 0
     let triangulated = true
@@ -419,6 +445,17 @@ export class SpeckleGeometryConverter extends GeometryConverter {
       normals = undefined
     }
 
+    if (uvs && uvs.length !== 0) {
+      if (uvs.length !== (vertices.length / 3) * 2) {
+        Logger.warn(
+          `Mesh (id ${node.raw.id}) texture coordinates are mismatched with vertice counts. The number of UV pairs must equal the number of vertices.`
+        )
+        uvs = undefined
+      }
+    } else {
+      uvs = undefined
+    }
+
     return {
       attributes: {
         POSITION: vertices,
@@ -432,7 +469,8 @@ export class SpeckleGeometryConverter extends GeometryConverter {
               }
             ]),
         ...(colors && { COLOR: colors }),
-        ...(normals && { NORMAL: normals })
+        ...(normals && { NORMAL: normals }),
+        ...(uvs && { UV: uvs })
       },
       bakeTransform: new Matrix4().makeScale(
         conversionFactor,

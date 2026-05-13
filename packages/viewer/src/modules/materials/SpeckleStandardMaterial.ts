@@ -79,13 +79,12 @@ class SpeckleStandardMaterial extends ExtendedMeshStandardMaterial {
     toStandard.originalRoughness = fromStandard.originalRoughness
     toStandard.artificialRoughness = fromStandard.artificialRoughness
 
-    /** Leaving textures out for now */
-    // toStandard.map = fromStandard.map
+    toStandard.map = fromStandard.map
     // toStandard.lightMap = fromStandard.lightMap
     // toStandard.lightMapIntensity = fromStandard.lightMapIntensity
     // toStandard.aoMap = fromStandard.aoMap
     // toStandard.aoMapIntensity = fromStandard.aoMapIntensity
-    // toStandard.emissiveMap = fromStandard.emissiveMap
+    toStandard.emissiveMap = fromStandard.emissiveMap
     // toStandard.bumpMap = fromStandard.bumpMap
     // toStandard.bumpScale = fromStandard.bumpScale
     // toStandard.normalMap = fromStandard.normalMap

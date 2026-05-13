@@ -294,6 +294,7 @@ export class Viewer extends EventEmitter implements IViewer {
       })
   }
 
+
   public screenshot(): Promise<string> {
     return new Promise((resolve) => {
       // const sectionBoxVisible = this.sectionBox.display.visible

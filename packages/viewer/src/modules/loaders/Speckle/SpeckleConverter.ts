@@ -32,17 +32,13 @@ export default class SpeckleConverter {
   protected colorMap: { [id: string]: SpeckleObject } = {}
   protected instanceCounter = 0
   protected duplicateCounter = 0
+  protected blobBaseUrl: string | null = null
   private traverseCount = 0
 
   protected readonly NodeConverterMapping: {
     [name: string]: SpeckleConverterNodeDelegate
   } = {
     View3D: this.View3DToNode.bind(this),
-    // REBUS: no-op Camera converter — keeps Camera node in world tree (needed for named
-    // view walk in setup.ts) but returns before traversing children, preventing
-    // Objects.Geometry.Point and Objects.Geometry.Vector sub-objects from being
-    // converted to renderable geometry and inflating the scene bounding box.
-    Camera: async (_obj: SpeckleObject, _node: TreeNode) => { return },
     BlockInstance: this.BlockInstanceToNode.bind(this),
     Pointcloud: this.PointcloudToNode.bind(this),
     Brep: this.BrepToNode.bind(this),
@@ -72,7 +68,7 @@ export default class SpeckleConverter {
 
   protected readonly IgnoreNodes = ['Parameter', 'RawEncoding']
 
-  constructor(objectLoader: ObjectLoader2, tree: WorldTree) {
+  constructor(objectLoader: ObjectLoader2, tree: WorldTree, resource?: string) {
     if (!objectLoader) {
       Logger.warn(
         'Converter initialized without a corresponding object loader. Any objects that include references will throw errors.'
@@ -83,6 +79,43 @@ export default class SpeckleConverter {
     this.activePromises = 0
     this.maxChildrenPromises = 200
     this.tree = tree
+    this.blobBaseUrl = this.getBlobBaseUrl(resource)
+  }
+
+  private getBlobBaseUrl(resource?: string): string | null {
+    if (!resource) return null
+    try {
+      const url = new URL(resource)
+      const segments = url.pathname.split('/')
+      const streamIndex = segments.indexOf('streams')
+      const streamId = streamIndex >= 0 ? segments[streamIndex + 1] : null
+      return streamId ? `${url.origin}/api/stream/${streamId}/blob` : null
+    } catch {
+      return null
+    }
+  }
+
+  private hydrateRenderMaterialTextureUrls(material: SpeckleObject | undefined) {
+    if (!material || !this.blobBaseUrl) return
+    const textureFields = [
+      'diffuseTexture',
+      'baseColorTexture',
+      'emissiveTexture',
+      'pbrEmissionTexture'
+    ]
+    for (const field of textureFields) {
+      const value = material[field]
+      if (typeof value !== 'string' || value.length === 0) continue
+      const urlField = `${field}Url`
+      if (typeof material[urlField] === 'string') continue
+      material[urlField] = value.startsWith('http')
+        ? value
+        : `${this.blobBaseUrl}/${encodeURIComponent(value)}`
+    }
+  }
+
+  private hydrateObjectRenderMaterial(obj: SpeckleObject) {
+    this.hydrateRenderMaterialTextureUrls(obj.renderMaterial as SpeckleObject | undefined)
   }
 
   /**
@@ -130,6 +163,7 @@ export default class SpeckleConverter {
       }
       /** Ignore objects with no id */
       if (!obj.id) return
+      this.hydrateObjectRenderMaterial(obj)
 
       const childNode: TreeNode = this.tree.parse({
         id: this.getNodeId(obj),
@@ -184,6 +218,7 @@ export default class SpeckleConverter {
         if (!Array.isArray(displayValue)) {
           displayValue = await this.resolveReference(displayValue)
           if (!displayValue.units) displayValue.units = obj.units
+          this.hydrateObjectRenderMaterial(displayValue)
           try {
             const nestedNode: TreeNode = this.tree.parse({
               id: this.getNodeId(displayValue),
@@ -204,6 +239,7 @@ export default class SpeckleConverter {
           for (const element of displayValue) {
             const val = await this.resolveReference(element)
             if (!val.units) val.units = obj.units
+            this.hydrateObjectRenderMaterial(val)
             const nestedNode: TreeNode = this.tree.parse({
               id: this.getNodeId(val),
               raw: val,
@@ -625,6 +661,7 @@ export default class SpeckleConverter {
       Logger.warn(`Render Material Proxy ${obj.id} has no target objects!`)
     }
     const renderMaterialValue = obj.value as SpeckleObject
+    this.hydrateRenderMaterialTextureUrls(renderMaterialValue)
     const targetObjects = obj.objects as []
     for (let k = 0; k < targetObjects.length; k++) {
       if (this.renderMaterialMap[targetObjects[k]]) {
