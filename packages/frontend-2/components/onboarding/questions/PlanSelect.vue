@@ -3,7 +3,7 @@
     v-bind="props"
     id="plan-select"
     v-model="selectedValue"
-    label="What are you planning to do with Speckle?"
+    label="What are you planning to do with ORBIT?"
     placeholder="Select all that apply"
     required
     :rules="isRequired"

@@ -240,6 +240,7 @@ const isOpenMobile = ref(false)
 const showExplainerVideoDialog = ref(false)
 
 const showSpeckleCon25Promo = computed(() => {
+  return false // ORBIT: SpeckleCon promo hidden
   if (hasDismissedSpeckleCon25Banner.value) return false
   return dayjs().isBefore('2025-11-07', 'day')
 })

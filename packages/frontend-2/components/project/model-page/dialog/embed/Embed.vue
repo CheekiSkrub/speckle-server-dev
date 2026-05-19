@@ -340,7 +340,7 @@ const updatedUrl = computed(() => {
 })
 
 const iframeCode = computed(() => {
-  return `<iframe title="Speckle" src="${updatedUrl.value}" width="600" height="400" frameborder="0"></iframe>`
+  return `<iframe title="ORBIT" src="${updatedUrl.value}" width="600" height="400" frameborder="0"></iframe>`
 })
 
 const buttons = computed((): LayoutDialogButton[] => [

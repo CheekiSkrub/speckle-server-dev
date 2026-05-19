@@ -7,16 +7,16 @@
   >
     <img
       class="h-8 w-8 block mr-1"
-      src="~~/assets/images/speckle_logo_big.png"
-      alt="Speckle"
+      src="~~/assets/images/orbit_logo.png"
+      alt="ORBIT"
     />
 
     <div
       v-if="!minimal"
       class="text-sm mt-0 font-medium"
-      :class="showTextOnMobile ? '' : 'hidden md:flex'"
+      :class="showTextOnMobile ? \'\' : \'hidden md:flex\'"
     >
-      Speckle
+      ORBIT
     </div>
   </Component>
 </template>
@@ -30,10 +30,10 @@ const props = withDefaults(
     noLink?: boolean
   }>(),
   {
-    to: '/'
+    to: "/"
   }
 )
 
-const NuxtLink = resolveComponent('NuxtLink')
-const mainComponent = computed(() => (props.noLink ? 'div' : NuxtLink))
+const NuxtLink = resolveComponent("NuxtLink")
+const mainComponent = computed(() => (props.noLink ? "div" : NuxtLink))
 </script>

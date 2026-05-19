@@ -404,7 +404,7 @@ const updateShowBranding = async () => {
 
     triggerNotification({
       type: ToastNotificationType.Success,
-      title: `Speckle logo on embeds ${showBranding.value ? 'enabled' : 'disabled'}`
+      title: `ORBIT logo on embeds ${showBranding.value ? 'enabled' : 'disabled'}`
     })
   }
 }

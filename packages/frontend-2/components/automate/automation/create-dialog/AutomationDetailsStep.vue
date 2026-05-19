@@ -3,7 +3,7 @@
     <FormSelectProjects
       v-if="!preselectedProject"
       v-model="project"
-      label="Speckle project"
+      label="ORBIT project"
       show-label
       help="Choose the project where your target model is located"
       show-required

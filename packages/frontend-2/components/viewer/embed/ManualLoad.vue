@@ -13,7 +13,7 @@
         <PlayIcon class="h-6 w-6 ml-[3px] text-foundation" />
       </div>
     </button>
-    <ViewerEmbedFooter :url="projectUrl" name="View in Speckle" />
+    <ViewerEmbedFooter :url="projectUrl" name="View in ORBIT" />
   </div>
 </template>
 

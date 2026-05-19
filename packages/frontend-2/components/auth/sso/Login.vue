@@ -1,7 +1,7 @@
 <template>
   <form method="post" @submit="onSubmit">
     <div class="flex flex-col gap-4">
-      <h1 class="text-heading-xl text-center mb-8">Speckle SSO login</h1>
+      <h1 class="text-heading-xl text-center mb-8">ORBIT SSO login</h1>
 
       <FormTextInput
         v-model="email"

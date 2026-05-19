@@ -128,13 +128,13 @@
               <template v-if="action === ChosenAction.Allow">
                 <span class="font-medium text-primary">{{ app?.name }}</span>
                 is connected to your
-                <span class="font-medium">Speckle</span>
+                <span class="font-medium">ORBIT</span>
                 account.
               </template>
               <template v-else>
                 <span class="font-medium text-primary">{{ app?.name }}</span>
                 has not been connected to your
-                <span class="font-medium">Speckle</span>
+                <span class="font-medium">ORBIT</span>
                 account.
               </template>
             </template>

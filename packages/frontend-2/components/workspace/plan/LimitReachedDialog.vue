@@ -14,7 +14,7 @@
       <div v-if="!condensed" class="relative bg-primary h-32 md:h-48 select-none">
         <img
           src="~/assets/images/workspace/cubes.webp"
-          alt="Speckle cubes"
+          alt="ORBIT"
           class="w-full object-cover h-full"
         />
 
@@ -22,7 +22,7 @@
 
         <div class="absolute top-0 left-0 w-full h-full z-10">
           <div class="flex flex-col justify-between h-full px-5 py-4">
-            <NuxtImg src="/images/logo.png" alt="Speckle logo" class="h-8 w-8" />
+            <NuxtImg src="/images/logo.png" alt="ORBIT logo" class="h-8 w-8" />
             <h3 class="text-white limit-reached-text-shadow text-base">
               Plan limit reached
             </h3>
