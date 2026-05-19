@@ -1018,6 +1018,9 @@ export default class SpeckleConverter {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     //@ts-ignore
     node.model.raw.vertexNormals = await this.dechunk(obj.vertexNormals)
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    //@ts-ignore
+    node.model.raw.textureCoordinates = await this.dechunk(obj.textureCoordinates)
   }
 
   private async RegionToNode(obj: SpeckleObject, node: TreeNode) {
