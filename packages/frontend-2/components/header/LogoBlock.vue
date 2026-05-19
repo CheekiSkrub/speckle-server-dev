@@ -14,7 +14,7 @@
     <div
       v-if="!minimal"
       class="text-sm mt-0 font-medium"
-      :class="showTextOnMobile ? \'\' : \'hidden md:flex\'"
+      :class="showTextOnMobile ? '' : 'hidden md:flex'"
     >
       ORBIT
     </div>
